@@ -1,18 +1,38 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from models.database import SessionLocal
+from models.user import User
+from dependencies import get_current_user  # 認証用 Depends
 
-router = APIRouter(prefix="/profile")
+router = APIRouter()
 
-@router.get("/me")
-def get_profile():
-    return {"name": "mockname", "department": "マーケティング"}
+# DBセッションを使うDepends関数
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-@router.put("/me")
-def update_profile():
-    return {"message": "updated"}
+# 自分のプロフィール取得（ログイン必須）
+@router.get("/profile/me")
+def get_my_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "level": current_user.level
+    }
 
-@router.get("/me/projects")
-def my_projects():
-    return [
-        {"id": 1, "title": "案件A"},
-        {"id": 2, "title": "案件B"},
-    ]
+# 任意ユーザーのプロフィール取得（ログイン不要 or 任意で制限）
+@router.get("/profile/{user_id}")
+def get_user_profile(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "username": user.username,
+        "level": user.level
+        # emailなどは公開しない想定なら除外OK
+    }

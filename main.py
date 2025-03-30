@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, profile, project, ranking
+from routers import auth, profile, project, ranking, comments 
 
 app = FastAPI()
 
@@ -18,6 +18,7 @@ app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(project.router)
 app.include_router(ranking.router)
+app.include_router(comments.router)
 
 
 
