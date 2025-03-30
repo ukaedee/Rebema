@@ -11,6 +11,6 @@ class User(Base):
     hashed_password = Column(String(255))
     level = Column(Integer, default=0)
 
-
     comments = relationship("Comment", back_populates="user")
     projects = relationship("Project", back_populates="user")
+    profile = relationship("Profile", back_populates="user", uselist=False)
