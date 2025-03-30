@@ -8,7 +8,7 @@ class Profile(Base):
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)  # Userモデルと関連付け
     department = Column(String(100))
     hire_date = Column(Date)
-    phone_number = Column(Integer)
+    phone_number = Column(String(20))  # IntegerからStringに変更
     email_address = Column(String(100), nullable=False)
     location = Column(String(100))
     level_number = Column(Integer, nullable=False)
