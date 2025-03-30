@@ -23,3 +23,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Baseクラスの作成
 Base = declarative_base()
+
+# データベースセッションを取得する関数
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
