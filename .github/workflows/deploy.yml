@@ -7,7 +7,7 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: app-002-step3-2-py-oshima14
-  AZURE_WEBAPP_PACKAGE_PATH: '.'
+  AZURE_WEBAPP_PACKAGE_PATH: 'rebema-backend'
   PYTHON_VERSION: '3.11'
 
 jobs:
@@ -26,10 +26,12 @@ jobs:
       run: |
         python -m venv venv
         source venv/bin/activate
+        cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         pip install -r requirements.txt
 
     - name: Deploy to Azure Web App
