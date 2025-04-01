@@ -2,18 +2,23 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import create_engine
 
 from alembic import context
 
 import sys
 import os
 from dotenv import load_dotenv
+import json
 
 # 環境変数の読み込み
 load_dotenv()
 
 # プロジェクトのルートディレクトリをPythonパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# SSL証明書のパスを設定
+SSL_CA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "DigiCertGlobalRootCA.crt.pem")
 
 from models.database import Base
 from models.user import User
@@ -28,7 +33,10 @@ from models.user_activity import UserActivity
 config = context.config
 
 # データベースURLを環境変数から取得
-db_url = f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD')}@{os.getenv('MYSQL_HOST')}:{os.getenv('MYSQL_PORT')}/{os.getenv('MYSQL_DB')}"
+db_url = os.getenv("DATABASE_URL")
+
+
+
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
@@ -71,16 +79,19 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    """Run migrations in 'online' mode."""
+    configuration = config.get_section(config.config_ini_section, {})
+    
+    url = config.get_main_option("sqlalchemy.url")
+    connectable = create_engine(
+        url,
         poolclass=pool.NullPool,
+        connect_args={
+            "ssl": {
+                "ssl": True,
+                "ca": SSL_CA_PATH
+            }
+        }
     )
 
     with connectable.connect() as connection:
@@ -90,6 +101,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 
 if context.is_offline_mode():
