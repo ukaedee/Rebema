@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, knowledge, ranking
-from .models.database import engine, Base
+from routers import auth, knowledge, ranking
+from models.database import engine, Base
 
 # データベースのテーブルを作成
 Base.metadata.create_all(bind=engine)

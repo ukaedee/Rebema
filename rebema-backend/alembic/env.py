@@ -5,15 +5,31 @@ from sqlalchemy import pool
 
 from alembic import context
 
+import sys
+import os
+from dotenv import load_dotenv
+
+# 環境変数の読み込み
+load_dotenv()
+
+# プロジェクトのルートディレクトリをPythonパスに追加
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from models.database import Base
-from models.project import Project
 from models.user import User
+from models.knowledge import Knowledge
+from models.file import File
 from models.comment import Comment
-from models.profile import Profile
+from models.knowledge_collaborator import KnowledgeCollaborator
+from models.user_activity import UserActivity
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# データベースURLを環境変数から取得
+db_url = f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD')}@{os.getenv('MYSQL_HOST')}:{os.getenv('MYSQL_PORT')}/{os.getenv('MYSQL_DB')}"
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -22,8 +38,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

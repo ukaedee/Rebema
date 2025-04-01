@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 
-from ..models.database import get_db
-from ..models.user import User
-from ..models.user_activity import UserActivity
-from ..core.security import get_current_user
+from models.database import get_db
+from models.user import User
+from models.user_activity import UserActivity
+from core.security import get_current_user
 
 router = APIRouter()
 

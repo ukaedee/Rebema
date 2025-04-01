@@ -6,8 +6,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from ..models.database import get_db
-from ..models.user import User
+from models.database import get_db
+from models.user import User
 
 # 設定
 SECRET_KEY = "your-secret-key-here"  # 本番環境では環境変数から取得
