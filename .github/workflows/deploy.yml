@@ -33,7 +33,6 @@ jobs:
         pip install -r requirements.txt
 
     - name: Deploy to Azure Web App
-      if: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
