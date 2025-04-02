@@ -38,8 +38,7 @@ jobs:
         # デプロイメントディレクトリの作成
         mkdir -p ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/deployment
         
-        # startup.shのコピーと権限設定
-        cp startup.sh ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/
+        # startup.shの権限設定
         chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
         
         # 環境変数の設定
@@ -48,6 +47,7 @@ jobs:
         SCM_DO_BUILD_DURING_DEPLOYMENT=true
         PYTHON_PATH=/home/site/wwwroot
         WEBSITE_ENABLE_APP_SERVICE_STORAGE=true
+        STARTUP_COMMAND=bash rebema-backend/startup.sh
         EOL
         
         # パッケージの作成
@@ -57,10 +57,15 @@ jobs:
         # パッケージの内容確認
         echo "=== Package Contents ==="
         tar -tvf ../output.tar.gz
+        
+        # パッケージの場所を確認
+        echo "=== Package Location ==="
+        ls -la ../output.tar.gz
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: output.tar.gz 
+        package: ./output.tar.gz
+        startup-command: bash rebema-backend/startup.sh 

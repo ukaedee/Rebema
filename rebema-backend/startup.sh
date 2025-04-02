@@ -88,3 +88,5 @@ exec gunicorn main:app \
     --capture-output \
     --enable-stdio-inheritance \
     --preload
+
+STARTUP_COMMAND=bash rebema-backend/startup.sh
