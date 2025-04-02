@@ -36,8 +36,8 @@ jobs:
     - name: Prepare deployment package
       run: |
         mkdir -p ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/deployment
-        cp ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/deployment/
-        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/deployment/startup.sh
+        cp startup.sh ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/
+        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
         echo 'WEBSITES_PORT=8000' > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
         echo 'SCM_DO_BUILD_DURING_DEPLOYMENT=true' >> ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
         echo 'PYTHON_PATH=/home/site/wwwroot' >> ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
