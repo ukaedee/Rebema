@@ -32,11 +32,12 @@ jobs:
         python -m pip install --upgrade pip
         cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         pip install -r requirements.txt
-        cd ..
+        cd $GITHUB_WORKSPACE
 
     - name: Clean workspace
       run: |
         echo "=== Cleaning workspace ==="
+        cd $GITHUB_WORKSPACE
         rm -f *.tar.gz
         rm -f *.zip
         echo "=== Workspace after cleaning ==="
@@ -44,12 +45,22 @@ jobs:
 
     - name: Prepare deployment package
       run: |
+        # エラー時に即座に終了し、エラーメッセージを表示
+        set -e
+        
+        # 必ず GITHUB_WORKSPACE にいることを確認
+        cd $GITHUB_WORKSPACE
+        
         echo "=== Current Working Directory ==="
         pwd
         
         echo "=== Directory Structure Before Packaging ==="
         ls -la
         echo "=== Content of rebema-backend ==="
+        if [ ! -d "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}" ]; then
+          echo "Error: Directory ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} does not exist"
+          exit 1
+        fi
         ls -la ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
         # 環境変数設定ファイルの作成
@@ -59,23 +70,41 @@ jobs:
         PYTHON_PATH=/home/site/wwwroot
         EOL
         
+        echo "=== Verifying .env file ==="
+        if [ ! -f "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env" ]; then
+          echo "Error: .env file was not created"
+          exit 1
+        fi
+        cat ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
+        
         echo "=== Creating Package ==="
         # パッケージの作成（rebema-backendディレクトリごと含める）
-        tar -czf ./package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        tar -czvf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        
+        echo "=== Verifying Package Creation ==="
+        if [ ! -f "package.tar.gz" ]; then
+          echo "Error: package.tar.gz was not created"
+          exit 1
+        fi
         
         echo "=== Package Information ==="
         ls -lh package.tar.gz
         
         echo "=== Package Contents ==="
-        tar -tvf package.tar.gz
+        tar -tvf package.tar.gz || {
+          echo "Error: Failed to read package contents"
+          exit 1
+        }
         
         echo "=== Current Directory Structure ==="
         pwd
         ls -la
+        
+        echo "=== Package Creation Successful ==="
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: package.tar.gz 
+        package: ${{ github.workspace }}/package.tar.gz 
