@@ -7,11 +7,19 @@ set -x
 handle_error() {
     echo "Error occurred in script at line: ${1}"
     echo "Last command exit status: $?"
+    echo "Last command output:"
+    echo "$(cat /tmp/last_command_output 2>/dev/null || echo 'No output available')"
     exit 1
 }
 
 # エラーが発生した行番号をハンドリング関数に渡す
 trap 'handle_error ${LINENO}' ERR
+
+# コマンド出力を一時ファイルに保存する関数
+run_with_output() {
+    "$@" > /tmp/last_command_output 2>&1
+    cat /tmp/last_command_output
+}
 
 echo "=== Environment Information ==="
 env | sort
@@ -21,21 +29,21 @@ pwd
 ls -la
 
 echo "=== Python Information ==="
-which python3 || echo "Python3 not found in PATH"
-python3 --version || echo "Python3 version command failed"
-which pip3 || echo "Pip3 not found in PATH"
-pip3 list || echo "Pip3 list command failed"
+run_with_output which python3
+run_with_output python3 --version
+run_with_output which pip3
+run_with_output pip3 list
 
 echo "=== Directory Structure ==="
-echo "Contents of /home/site/wwwroot:"
-ls -la /home/site/wwwroot || echo "Failed to list /home/site/wwwroot"
+echo "Contents of current directory:"
+run_with_output ls -la
 
 echo "Searching for main.py..."
-MAIN_PY_PATH=$(find /home/site/wwwroot/rebema-backend -type f -name "main.py" 2>/dev/null || echo "")
+MAIN_PY_PATH=$(run_with_output find . -type f -name "main.py")
 if [ -z "$MAIN_PY_PATH" ]; then
-    echo "Error: Could not find main.py in /home/site/wwwroot/rebema-backend"
-    echo "Listing all Python files in rebema-backend:"
-    find /home/site/wwwroot/rebema-backend -type f -name "*.py" 2>/dev/null
+    echo "Error: Could not find main.py in current directory"
+    echo "Listing all Python files:"
+    run_with_output find . -type f -name "*.py"
     exit 1
 fi
 
@@ -46,26 +54,35 @@ echo "Found main.py in: $APP_DIR"
 echo "=== Moving to Application Directory ==="
 cd "$APP_DIR" || exit 1
 echo "Current directory: $(pwd)"
-ls -la
+run_with_output ls -la
 
 echo "=== Installing Requirements ==="
 if [ -f "requirements.txt" ]; then
-    pip3 install -r requirements.txt || echo "Failed to install requirements"
+    run_with_output pip3 install -r requirements.txt
 fi
 
 echo "=== Checking Required Packages ==="
-pip3 list | grep -E "fastapi|uvicorn|gunicorn" || echo "Required packages not found"
+run_with_output pip3 list | grep -E "fastapi|uvicorn|gunicorn"
 
 # 環境変数が設定されていない場合は8000を使用
 PORT=${WEBSITES_PORT:-8000}
 echo "Using port: $PORT"
 
 # PYTHONPATHにアプリケーションディレクトリを追加
-export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${APP_DIR}"
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${APP_DIR}:$(dirname "$APP_DIR")"
 echo "PYTHONPATH: $PYTHONPATH"
 
 echo "=== Testing Application Import ==="
-python3 -c "import main; print('Main module can be imported')" || echo "Failed to import main module"
+echo "Testing main module import..."
+run_with_output python3 -c "import main; print('Main module can be imported')"
+
+echo "Testing routers import..."
+run_with_output python3 -c "from routers import auth; print('Auth router can be imported')"
+run_with_output python3 -c "from routers import knowledge; print('Knowledge router can be imported')"
+run_with_output python3 -c "from routers import ranking; print('Ranking router can be imported')"
+
+echo "Testing database connection..."
+run_with_output python3 -c "from models.database import engine; print('Database engine can be imported')"
 
 echo "=== Starting Application ==="
 # アプリケーションを起動（詳細なログ出力）
