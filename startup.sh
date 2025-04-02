@@ -38,18 +38,9 @@ echo "=== Directory Structure ==="
 echo "Contents of current directory:"
 run_with_output ls -la
 
-echo "Searching for main.py..."
-MAIN_PY_PATH=$(run_with_output find . -type f -name "main.py")
-if [ -z "$MAIN_PY_PATH" ]; then
-    echo "Error: Could not find main.py in current directory"
-    echo "Listing all Python files:"
-    run_with_output find . -type f -name "*.py"
-    exit 1
-fi
-
-# アプリケーションのルートディレクトリを特定
-APP_DIR=$(dirname "$MAIN_PY_PATH")
-echo "Found main.py in: $APP_DIR"
+# アプリケーションのルートディレクトリを明示的に指定
+APP_DIR="rebema-backend"
+echo "Using application directory: $APP_DIR"
 
 echo "=== Moving to Application Directory ==="
 cd "$APP_DIR" || exit 1
@@ -69,7 +60,7 @@ PORT=${WEBSITES_PORT:-8000}
 echo "Using port: $PORT"
 
 # PYTHONPATHにアプリケーションディレクトリを追加
-export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${APP_DIR}:$(dirname "$APP_DIR")"
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}$(pwd):$(dirname $(pwd))"
 echo "PYTHONPATH: $PYTHONPATH"
 
 echo "=== Testing Application Import ==="
@@ -85,7 +76,6 @@ echo "Testing database connection..."
 run_with_output python3 -c "from models.database import engine; print('Database engine can be imported')"
 
 echo "=== Starting Application ==="
-# アプリケーションを起動（詳細なログ出力）
 exec gunicorn main:app \
     --bind=0.0.0.0:$PORT \
     --workers=4 \
@@ -97,4 +87,4 @@ exec gunicorn main:app \
     --chdir "$APP_DIR" \
     --capture-output \
     --enable-stdio-inheritance \
-    --preload 
+    --preload

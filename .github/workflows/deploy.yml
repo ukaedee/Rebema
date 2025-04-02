@@ -35,17 +35,32 @@ jobs:
 
     - name: Prepare deployment package
       run: |
+        # デプロイメントディレクトリの作成
         mkdir -p ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/deployment
+        
+        # startup.shのコピーと権限設定
         cp startup.sh ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/
         chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
-        echo 'WEBSITES_PORT=8000' > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
-        echo 'SCM_DO_BUILD_DURING_DEPLOYMENT=true' >> ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
-        echo 'PYTHON_PATH=/home/site/wwwroot' >> ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
-        echo 'WEBSITE_ENABLE_APP_SERVICE_STORAGE=true' >> ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
+        
+        # 環境変数の設定
+        cat > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env << EOL
+        WEBSITES_PORT=8000
+        SCM_DO_BUILD_DURING_DEPLOYMENT=true
+        PYTHON_PATH=/home/site/wwwroot
+        WEBSITE_ENABLE_APP_SERVICE_STORAGE=true
+        EOL
+        
+        # パッケージの作成
+        cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        tar -czf ../output.tar.gz .
+        
+        # パッケージの内容確認
+        echo "=== Package Contents ==="
+        tar -tvf ../output.tar.gz
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} 
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/../output.tar.gz 
