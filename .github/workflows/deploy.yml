@@ -35,38 +35,26 @@ jobs:
 
     - name: Prepare deployment package
       run: |
-        # デプロイ用の一時ディレクトリを作成
-        mkdir -p deploy_package
-        
-        # バックエンドファイルをデプロイディレクトリにコピー
-        cp -r ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/* deploy_package/
+        # 現在のディレクトリ構造を確認
+        echo "=== Current Directory Structure ==="
+        ls -la
         
         # startup.shの権限設定
-        chmod +x deploy_package/startup.sh
+        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
         
-        # 環境変数の設定
-        cat > deploy_package/.env << EOL
-        WEBSITES_PORT=8000
-        SCM_DO_BUILD_DURING_DEPLOYMENT=true
-        PYTHON_PATH=/home/site/wwwroot
-        WEBSITE_ENABLE_APP_SERVICE_STORAGE=true
-        EOL
+        # パッケージの作成（rebema-backendディレクトリごと含める）
+        tar -czf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
-        # パッケージの作成
-        cd deploy_package
-        zip -r ../package.zip .
-        cd ..
-        
-        # パッケージの確認
+        # パッケージの内容確認
         echo "=== Package Location ==="
-        ls -la package.zip
+        ls -la package.tar.gz
         
         echo "=== Package Contents ==="
-        unzip -l package.zip
+        tar -tvf package.tar.gz
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: package.zip 
+        package: package.tar.gz 

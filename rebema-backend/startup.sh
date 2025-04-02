@@ -39,7 +39,7 @@ echo "Contents of current directory:"
 run_with_output ls -la
 
 # アプリケーションのルートディレクトリを明示的に指定
-APP_DIR="rebema-backend"
+APP_DIR="/home/site/wwwroot/rebema-backend"
 echo "Using application directory: $APP_DIR"
 
 echo "=== Moving to Application Directory ==="
@@ -60,7 +60,7 @@ PORT=${WEBSITES_PORT:-8000}
 echo "Using port: $PORT"
 
 # PYTHONPATHにアプリケーションディレクトリを追加
-export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}$(pwd):$(dirname $(pwd))"
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}$APP_DIR:$(dirname $APP_DIR)"
 echo "PYTHONPATH: $PYTHONPATH"
 
 echo "=== Testing Application Import ==="
