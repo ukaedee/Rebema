@@ -1,6 +1,8 @@
 # Environment variables
 .env
 */.env
+rebema-backend/.env
+
 
 # Python
 __pycache__/
@@ -23,6 +25,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Virtual Environment
+venv/
+ENV/
 
 # IDE
 .idea/
