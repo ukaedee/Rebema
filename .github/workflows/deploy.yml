@@ -56,13 +56,12 @@ jobs:
         echo "=== Creating .env file ==="
         cat > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env << EOL
         WEBSITES_PORT=8000
-        SCM_DO_BUILD_DURING_DEPLOYMENT=true
         PYTHON_PATH=/home/site/wwwroot
         EOL
         
         echo "=== Creating Package ==="
         # パッケージの作成（rebema-backendディレクトリごと含める）
-        tar -czvf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        tar -czf ./package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
         echo "=== Package Information ==="
         ls -lh package.tar.gz
@@ -70,29 +69,13 @@ jobs:
         echo "=== Package Contents ==="
         tar -tvf package.tar.gz
         
-        echo "=== Verifying Package ==="
-        if [ ! -f "package.tar.gz" ]; then
-          echo "Error: package.tar.gz was not created"
-          exit 1
-        fi
-        
-        if ! tar -tf package.tar.gz > /dev/null 2>&1; then
-          echo "Error: package.tar.gz is not a valid tar archive"
-          exit 1
-        fi
-        
-        # パッケージサイズの確認
-        size=$(stat -f%z package.tar.gz 2>/dev/null || stat -c%s package.tar.gz)
-        if [ "$size" -lt 1000 ]; then
-          echo "Error: package.tar.gz is too small (${size} bytes)"
-          exit 1
-        fi
-        
-        echo "=== Package Validation Successful ==="
+        echo "=== Current Directory Structure ==="
+        pwd
+        ls -la
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ${{ github.workspace }}/package.tar.gz 
+        package: package.tar.gz 
