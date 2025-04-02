@@ -31,11 +31,11 @@ echo "Contents of /home/site/wwwroot:"
 ls -la /home/site/wwwroot || echo "Failed to list /home/site/wwwroot"
 
 echo "Searching for main.py..."
-MAIN_PY_PATH=$(find /home/site/wwwroot -type f -name "main.py" 2>/dev/null || echo "")
+MAIN_PY_PATH=$(find /home/site/wwwroot/rebema-backend -type f -name "main.py" 2>/dev/null || echo "")
 if [ -z "$MAIN_PY_PATH" ]; then
-    echo "Error: Could not find main.py"
-    echo "Listing all Python files:"
-    find /home/site/wwwroot -type f -name "*.py" 2>/dev/null
+    echo "Error: Could not find main.py in /home/site/wwwroot/rebema-backend"
+    echo "Listing all Python files in rebema-backend:"
+    find /home/site/wwwroot/rebema-backend -type f -name "*.py" 2>/dev/null
     exit 1
 fi
 
