@@ -47,7 +47,6 @@ jobs:
         SCM_DO_BUILD_DURING_DEPLOYMENT=true
         PYTHON_PATH=/home/site/wwwroot
         WEBSITE_ENABLE_APP_SERVICE_STORAGE=true
-        STARTUP_COMMAND=bash rebema-backend/startup.sh
         EOL
         
         # パッケージの作成
@@ -62,10 +61,38 @@ jobs:
         echo "=== Package Location ==="
         ls -la ../output.tar.gz
 
+    - name: Configure App Settings
+      uses: azure/appservice-settings@v1
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-settings-json: |
+          [
+            {
+              "name": "WEBSITES_PORT",
+              "value": "8000"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "0"
+            },
+            {
+              "name": "WEBSITE_ENABLE_APP_SERVICE_STORAGE",
+              "value": "true"
+            },
+            {
+              "name": "STARTUP_COMMAND",
+              "value": "bash rebema-backend/startup.sh"
+            }
+          ]
+        mask-inputs: false
+
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./output.tar.gz
-        startup-command: bash rebema-backend/startup.sh 
+        package: ./output.tar.gz 
