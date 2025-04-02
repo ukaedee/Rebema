@@ -63,6 +63,15 @@ jobs:
         fi
         ls -la ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
+        # startup.shの存在確認
+        echo "=== Checking startup.sh ==="
+        if [ ! -f "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh" ]; then
+          echo "Error: startup.sh not found"
+          exit 1
+        fi
+        echo "startup.sh permissions:"
+        ls -l ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+        
         # 環境変数設定ファイルの作成
         echo "=== Creating .env file ==="
         cat > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env << EOL
@@ -76,6 +85,11 @@ jobs:
           exit 1
         fi
         cat ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
+        
+        # startup.shの実行権限を設定
+        echo "=== Setting startup.sh permissions ==="
+        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+        ls -l ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
         
         echo "=== Creating Package ==="
         # パッケージの作成（rebema-backendディレクトリごと含める）
@@ -93,10 +107,13 @@ jobs:
         ls -lh package.zip
         
         echo "=== Package Contents ==="
-        unzip -l package.zip || {
-          echo "Error: Failed to read package contents"
+        echo "Detailed package contents:"
+        unzip -l package.zip | grep -i "startup.sh" || {
+          echo "Warning: startup.sh not found in package"
           exit 1
         }
+        echo "Full package contents:"
+        unzip -l package.zip
         
         echo "=== Current Directory Structure ==="
         pwd
