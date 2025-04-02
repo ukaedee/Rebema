@@ -34,29 +34,65 @@ jobs:
         pip install -r requirements.txt
         cd ..
 
+    - name: Clean workspace
+      run: |
+        echo "=== Cleaning workspace ==="
+        rm -f *.tar.gz
+        rm -f *.zip
+        echo "=== Workspace after cleaning ==="
+        ls -la
+
     - name: Prepare deployment package
       run: |
-        # 現在のディレクトリ構造を確認
-        echo "=== Current Directory Structure ==="
+        echo "=== Current Working Directory ==="
         pwd
+        
+        echo "=== Directory Structure Before Packaging ==="
         ls -la
+        echo "=== Content of rebema-backend ==="
+        ls -la ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
-        # startup.shの権限設定
-        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+        # 環境変数設定ファイルの作成
+        echo "=== Creating .env file ==="
+        cat > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env << EOL
+        WEBSITES_PORT=8000
+        SCM_DO_BUILD_DURING_DEPLOYMENT=true
+        PYTHON_PATH=/home/site/wwwroot
+        EOL
         
+        echo "=== Creating Package ==="
         # パッケージの作成（rebema-backendディレクトリごと含める）
-        tar -czf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        tar -czvf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
-        # パッケージの内容確認
-        echo "=== Package Location ==="
-        ls -la package.tar.gz
+        echo "=== Package Information ==="
+        ls -lh package.tar.gz
         
         echo "=== Package Contents ==="
         tar -tvf package.tar.gz
+        
+        echo "=== Verifying Package ==="
+        if [ ! -f "package.tar.gz" ]; then
+          echo "Error: package.tar.gz was not created"
+          exit 1
+        fi
+        
+        if ! tar -tf package.tar.gz > /dev/null 2>&1; then
+          echo "Error: package.tar.gz is not a valid tar archive"
+          exit 1
+        fi
+        
+        # パッケージサイズの確認
+        size=$(stat -f%z package.tar.gz 2>/dev/null || stat -c%s package.tar.gz)
+        if [ "$size" -lt 1000 ]; then
+          echo "Error: package.tar.gz is too small (${size} bytes)"
+          exit 1
+        fi
+        
+        echo "=== Package Validation Successful ==="
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: package.tar.gz 
+        package: ${{ github.workspace }}/package.tar.gz 
