@@ -32,11 +32,13 @@ jobs:
         python -m pip install --upgrade pip
         cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         pip install -r requirements.txt
+        cd ..
 
     - name: Prepare deployment package
       run: |
         # 現在のディレクトリ構造を確認
         echo "=== Current Directory Structure ==="
+        pwd
         ls -la
         
         # startup.shの権限設定
