@@ -79,19 +79,21 @@ jobs:
         
         echo "=== Creating Package ==="
         # パッケージの作成（rebema-backendディレクトリごと含める）
-        tar -czvf package.tar.gz ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        cd ..
+        zip -r package.zip ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         
         echo "=== Verifying Package Creation ==="
-        if [ ! -f "package.tar.gz" ]; then
-          echo "Error: package.tar.gz was not created"
+        if [ ! -f "package.zip" ]; then
+          echo "Error: package.zip was not created"
           exit 1
         fi
         
         echo "=== Package Information ==="
-        ls -lh package.tar.gz
+        ls -lh package.zip
         
         echo "=== Package Contents ==="
-        tar -tvf package.tar.gz || {
+        unzip -l package.zip || {
           echo "Error: Failed to read package contents"
           exit 1
         }
@@ -107,4 +109,4 @@ jobs:
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ${{ github.workspace }}/package.tar.gz 
+        package: package.zip 
