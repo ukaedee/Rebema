@@ -5,12 +5,13 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import os
 
 from models.database import get_db
 from models.user import User
 
 # 設定
-SECRET_KEY = "your-secret-key-here"  # 本番環境では環境変数から取得
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")  # 環境変数から取得、デフォルト値を設定
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
