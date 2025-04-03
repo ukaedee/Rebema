@@ -72,20 +72,6 @@ jobs:
         echo "startup.sh permissions:"
         ls -l ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
         
-        # 環境変数設定ファイルの作成
-        echo "=== Creating .env file ==="
-        cat > ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env << EOL
-        WEBSITES_PORT=8000
-        PYTHON_PATH=/home/site/wwwroot
-        EOL
-        
-        echo "=== Verifying .env file ==="
-        if [ ! -f "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env" ]; then
-          echo "Error: .env file was not created"
-          exit 1
-        fi
-        cat ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/.env
-        
         # startup.shの実行権限を設定
         echo "=== Setting startup.sh permissions ==="
         chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
