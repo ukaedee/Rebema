@@ -29,9 +29,17 @@ pwd
 ls -la
 
 echo "=== Python Information ==="
+echo "Python Version Environment Variable: $PYTHON_VERSION"
+echo "Checking all available python versions:"
+run_with_output ls -la /usr/bin/python*
+echo "Default Python path:"
 run_with_output which python3
+echo "Python version details:"
 run_with_output python3 --version
+run_with_output python3 -c "import sys; print(f'Python {sys.version}')"
+echo "Pip information:"
 run_with_output which pip3
+run_with_output pip3 --version
 run_with_output pip3 list
 
 echo "=== Directory Structure ==="

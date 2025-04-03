@@ -2,12 +2,12 @@ name: Deploy to Azure Web App
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   workflow_dispatch:
 
 env:
   AZURE_WEBAPP_NAME: app-002-step3-2-py-oshima14
-  AZURE_WEBAPP_PACKAGE_PATH: 'rebema-backend'
+  AZURE_WEBAPP_PACKAGE_PATH: rebema-backend
   PYTHON_VERSION: '3.12'
 
 jobs:
@@ -17,95 +17,38 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python version
-      uses: actions/setup-python@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Create and start virtual environment
-      run: |
-        python -m venv venv
-        source venv/bin/activate
-
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
         cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
         pip install -r requirements.txt
-        cd $GITHUB_WORKSPACE
 
-    - name: Clean workspace
+    - name: Create deployment package
       run: |
-        echo "=== Cleaning workspace ==="
-        cd $GITHUB_WORKSPACE
-        rm -f *.tar.gz
-        rm -f *.zip
-        echo "=== Workspace after cleaning ==="
-        ls -la
-
-    - name: Prepare deployment package
-      run: |
-        # エラー時に即座に終了し、エラーメッセージを表示
-        set -e
+        # デプロイパッケージ用のディレクトリを作成
+        mkdir -p deploy_package
         
-        # 必ず GITHUB_WORKSPACE にいることを確認
-        cd $GITHUB_WORKSPACE
-        
-        echo "=== Current Working Directory ==="
-        pwd
-        
-        echo "=== Directory Structure Before Packaging ==="
-        ls -la
-        echo "=== Content of rebema-backend ==="
-        if [ ! -d "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}" ]; then
-          echo "Error: Directory ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} does not exist"
-          exit 1
-        fi
-        ls -la ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-        
-        # startup.shの存在確認
-        echo "=== Checking startup.sh ==="
-        if [ ! -f "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh" ]; then
-          echo "Error: startup.sh not found"
-          exit 1
-        fi
-        echo "startup.sh permissions:"
-        ls -l ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+        # アプリケーションファイルをコピー
+        cp -r ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/* deploy_package/
         
         # startup.shの実行権限を設定
-        echo "=== Setting startup.sh permissions ==="
-        chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
-        ls -l ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+        chmod +x deploy_package/startup.sh
         
-        echo "=== Creating Package ==="
-        # パッケージの作成（rebema-backendディレクトリごと含める）
-        cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-        cd ..
-        zip -r package.zip ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        # パッケージを作成
+        cd deploy_package
+        zip -r ../package.zip .
         
-        echo "=== Verifying Package Creation ==="
-        if [ ! -f "package.zip" ]; then
-          echo "Error: package.zip was not created"
-          exit 1
-        fi
-        
-        echo "=== Package Information ==="
-        ls -lh package.zip
-        
+        # パッケージの内容を確認
         echo "=== Package Contents ==="
-        echo "Detailed package contents:"
-        unzip -l package.zip | grep -i "startup.sh" || {
-          echo "Warning: startup.sh not found in package"
-          exit 1
-        }
-        echo "Full package contents:"
-        unzip -l package.zip
+        unzip -l ../package.zip
         
-        echo "=== Current Directory Structure ==="
-        pwd
-        ls -la
-        
-        echo "=== Package Creation Successful ==="
+        # startup.shの存在と権限を確認
+        echo "=== startup.sh Permissions ==="
+        ls -l startup.sh
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
