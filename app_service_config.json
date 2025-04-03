@@ -1,0 +1,26 @@
+{
+    "name": "rebema-app",
+    "startupCommand": "bash rebema-backend/startup.sh",
+    "startupTimeLimit": 300,
+    "env": {
+        "WEBSITES_PORT": "8000",
+        "PYTHON_VERSION": "3.12"
+    },
+    "variables": [
+        {
+            "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+            "value": "true",
+            "slotSetting": false
+        },
+        {
+            "name": "PYTHON_PATH",
+            "value": "/home/site/wwwroot/rebema-backend",
+            "slotSetting": false
+        },
+        {
+            "name": "PYTHONPATH",
+            "value": "/home/site/wwwroot/rebema-backend",
+            "slotSetting": false
+        }
+    ]
+} 
