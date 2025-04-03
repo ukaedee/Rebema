@@ -37,6 +37,7 @@ run_with_output which python3
 echo "Python version details:"
 run_with_output python3 --version
 run_with_output python3 -c "import sys; print(f'Python {sys.version}')"
+run_with_output python3 -c "import platform; print(f'Platform Python version: {platform.python_version()}')"
 echo "Pip information:"
 run_with_output which pip3
 run_with_output pip3 --version
