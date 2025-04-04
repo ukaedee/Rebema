@@ -24,8 +24,9 @@ jobs:
           # 一時ディレクトリを作成
           mkdir -p deploy_package
           
-          # アプリケーションディレクトリをコピー
-          cp -r ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} deploy_package/
+          # アプリケーションディレクトリをコピー（venvを除外）
+          mkdir -p deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+          rsync -av --exclude='venv' ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/ deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/
           
           # startup.shの実行権限を設定
           chmod +x deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
@@ -42,6 +43,15 @@ jobs:
           # 重要なファイルの存在確認
           echo "=== Verifying Critical Files ==="
           unzip -l package.zip | grep -E "startup.sh|requirements.txt|main.py"
+          
+          # venvディレクトリが含まれていないことを確認
+          echo "=== Checking for venv directory ==="
+          if unzip -l package.zip | grep -q "venv"; then
+            echo "Warning: venv directory found in package"
+            exit 1
+          else
+            echo "Success: No venv directory in package"
+          fi
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
