@@ -28,17 +28,31 @@ echo "=== Current Directory ==="
 pwd
 ls -la
 
-# wwwrootディレクトリに移動してoutput.tar.gzを展開
-echo "=== Moving to wwwroot and extracting output.tar.gz if exists ==="
+# クリーンアップ処理
+echo "=== Cleaning up old files ==="
 cd /home/site/wwwroot
 if [ -f "output.tar.gz" ]; then
-    echo "Found output.tar.gz, extracting..."
-    tar -xzf output.tar.gz
-    echo "Extraction complete. Directory contents:"
-    ls -la
-else
-    echo "output.tar.gz not found, continuing with existing files"
+    echo "Removing output.tar.gz..."
+    rm output.tar.gz
 fi
+
+if [ -f "oryx-manifest.toml" ]; then
+    echo "Removing oryx-manifest.toml..."
+    rm oryx-manifest.toml
+fi
+
+if [ -f ".ostype" ]; then
+    echo "Removing .ostype..."
+    rm .ostype
+fi
+
+if [ -f "hostingstart.html" ]; then
+    echo "Removing hostingstart.html..."
+    rm hostingstart.html
+fi
+
+echo "Current directory contents after cleanup:"
+ls -la
 
 echo "=== Python Information ==="
 echo "Python Version Environment Variable: $PYTHON_VERSION"
