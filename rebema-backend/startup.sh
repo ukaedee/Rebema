@@ -28,6 +28,18 @@ echo "=== Current Directory ==="
 pwd
 ls -la
 
+# wwwrootディレクトリに移動してoutput.tar.gzを展開
+echo "=== Moving to wwwroot and extracting output.tar.gz if exists ==="
+cd /home/site/wwwroot
+if [ -f "output.tar.gz" ]; then
+    echo "Found output.tar.gz, extracting..."
+    tar -xzf output.tar.gz
+    echo "Extraction complete. Directory contents:"
+    ls -la
+else
+    echo "output.tar.gz not found, continuing with existing files"
+fi
+
 echo "=== Python Information ==="
 echo "Python Version Environment Variable: $PYTHON_VERSION"
 echo "Checking all available python versions:"

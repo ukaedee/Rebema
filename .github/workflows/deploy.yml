@@ -21,10 +21,8 @@ jobs:
 
       - name: Create deployment package
         run: |
-          # パッケージの作成（rebema-backendディレクトリを直接含める）
-          cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-          zip -r ../package.zip .
-          cd ..
+          # パッケージの作成（rebema-backendディレクトリごと含める）
+          zip -r package.zip ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           
           # startup.shの実行権限を設定
           chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
