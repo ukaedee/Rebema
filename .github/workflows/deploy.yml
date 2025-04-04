@@ -19,47 +19,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
-        run: |
-          cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-          pip install -r requirements.txt
-
       - name: Create deployment package
         run: |
-          # 現在のディレクトリ構造を確認
-          echo "=== Current Directory Structure ==="
-          pwd
-          ls -la
-          
-          # wwwrootディレクトリを作成
-          mkdir -p deploy_package/home/site/wwwroot
-          
-          # アプリケーションファイルを正しい場所にコピー
-          cp -r ${{ env.AZURE_WEBAPP_PACKAGE_PATH }} deploy_package/home/site/wwwroot/
+          # パッケージの作成（rebema-backendディレクトリを直接含める）
+          cd ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+          zip -r ../package.zip .
+          cd ..
           
           # startup.shの実行権限を設定
-          chmod +x deploy_package/home/site/wwwroot/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
-          
-          # デプロイ設定ファイルを作成
-          echo '{
-            "name": "rebema-app",
-            "startupCommand": "bash rebema-backend/startup.sh",
-            "platform": {
-              "os": "linux",
-              "buildVersion": "Python|3.12"
-            },
-            "build": {
-              "commands": []
-            }
-          }' > deploy_package/.deployment
-          
-          # パッケージを作成（wwwrootの親ディレクトリから）
-          cd deploy_package
-          zip -r ../package.zip .
+          chmod +x ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
           
           # パッケージの内容を確認
           echo "=== Package Contents ==="
-          cd ..
           unzip -l package.zip
           
           # 重要なファイルの存在確認
