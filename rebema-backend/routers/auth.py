@@ -75,11 +75,17 @@ async def login(
 
 @router.get("/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
+    # 次のレベルまでに必要な経験値を計算
+    required_xp = current_user.level * 10
+    xp_to_next_level = required_xp - current_user.current_xp
+    
     return {
         "id": current_user.id,
         "email": current_user.email,
         "username": current_user.username,
         "level": current_user.level,
         "points": current_user.points,
-        "current_xp": current_user.current_xp
+        "current_xp": current_user.current_xp,
+        "required_xp": required_xp,
+        "xp_to_next_level": xp_to_next_level
     } 
