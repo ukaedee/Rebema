@@ -13,6 +13,7 @@ from models.file import File as FileModel
 from models.comment import Comment
 from models.knowledge_collaborator import KnowledgeCollaborator
 from core.security import get_current_user
+from utils.experience import add_experience
 
 router = APIRouter()
 
@@ -71,6 +72,10 @@ async def create_knowledge(
             db.add(db_file)
     
     db.commit()
+    
+    # 経験値を追加
+    add_experience(current_user, 10, db)
+    
     return knowledge
 
 @router.post("/{knowledge_id}/files")
@@ -269,6 +274,7 @@ async def create_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # ナレッジの存在確認
     knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
     if not knowledge:
         raise HTTPException(
@@ -276,16 +282,79 @@ async def create_comment(
             detail="Knowledge not found"
         )
     
+    # コメントの作成
     comment = Comment(
-        knowledge_id=knowledge_id,
         content=content,
+        knowledge_id=knowledge_id,
         author_id=current_user.id
     )
     db.add(comment)
     db.commit()
     db.refresh(comment)
     
+    # 経験値を追加
+    add_experience(current_user, 10, db)
+    
     return comment
+
+@router.get("/{knowledge_id}/comments")
+async def list_comments(
+    knowledge_id: int,
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    # ナレッジの存在確認
+    knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
+    if not knowledge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Knowledge not found"
+        )
+    
+    # コメント一覧を取得
+    comments = db.query(Comment)\
+        .filter(Comment.knowledge_id == knowledge_id)\
+        .order_by(Comment.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+    
+    total = db.query(Comment)\
+        .filter(Comment.knowledge_id == knowledge_id)\
+        .count()
+    
+    return {
+        "total": total,
+        "items": comments
+    }
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # コメントの存在確認
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found"
+        )
+    
+    # 権限チェック
+    if comment.author_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this comment"
+        )
+    
+    # コメントの削除
+    db.delete(comment)
+    db.commit()
+    
+    return {"message": "Comment deleted successfully"}
 
 @router.post("/{knowledge_id}/collaborators")
 async def add_collaborator(
