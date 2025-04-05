@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional
+from pydantic import BaseModel, EmailStr
 
 from models.database import get_db
 from models.user import User
@@ -16,33 +17,36 @@ from core.security import (
 
 router = APIRouter()
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    username: str
+
 @router.post("/register")
 async def register(
-    email: str,
-    password: str,
-    username: str,
+    user_data: UserCreate,
     db: Session = Depends(get_db)
 ):
     # メールアドレスの重複チェック
-    if db.query(User).filter(User.email == email).first():
+    if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
     
     # ユーザー名の重複チェック
-    if db.query(User).filter(User.username == username).first():
+    if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
     
     # 新規ユーザー作成
-    hashed_password = get_password_hash(password)
+    hashed_password = get_password_hash(user_data.password)
     user = User(
-        email=email,
+        email=user_data.email,
         password_hash=hashed_password,
-        username=username
+        username=user_data.username
     )
     db.add(user)
     db.commit()
