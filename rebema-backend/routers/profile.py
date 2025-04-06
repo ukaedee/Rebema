@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
@@ -20,7 +20,51 @@ class UserProfileUpdate(BaseModel):
     department: Optional[str] = None
     password: Optional[str] = None
     bio: Optional[str] = None
-    phone_number: Optional[str] = None
+    phoneNumber: Optional[str] = None
+
+@router.get("/{user_id}")
+async def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    # ユーザー情報を取得
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="ユーザーが見つかりません"
+        )
+    
+    # プロフィール情報を取得
+    profile = db.query(Profile).filter(Profile.user_id == user.id).first()
+    if not profile:
+        profile = Profile(user_id=user.id)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    
+    # ナレッジ数を取得
+    knowledge_count = db.query(Knowledge).filter(
+        Knowledge.author_id == user.id
+    ).count()
+    
+    # コメント数を取得
+    comment_count = db.query(Comment).filter(
+        Comment.author_id == user.id
+    ).count()
+    
+    return {
+        "id": user.id,
+        "name": user.username,
+        "department": user.department,
+        "level": user.level,
+        "hasAvatar": user.avatar_data is not None,
+        "bio": profile.bio,
+        "stats": {
+            "knowledgeCount": knowledge_count,
+            "commentCount": comment_count
+        }
+    }
 
 @router.get("/me")
 async def read_profile(
@@ -30,7 +74,6 @@ async def read_profile(
     # プロフィール情報を取得
     profile = db.query(Profile).filter(Profile.user_id == current_user.id).first()
     if not profile:
-        # プロフィールが存在しない場合は作成
         profile = Profile(user_id=current_user.id)
         db.add(profile)
         db.commit()
@@ -57,32 +100,32 @@ async def read_profile(
     
     return {
         "id": current_user.id,
-        "username": current_user.username,
+        "name": current_user.username,
         "email": current_user.email,
         "department": current_user.department,
-        "avatar_url": current_user.avatar_url,
-        "experience_points": current_user.experience_points,
+        "hasAvatar": current_user.avatar_data is not None,
+        "experiencePoints": current_user.experience_points,
         "level": current_user.level,
         "bio": profile.bio,
-        "phone_number": profile.phone_number,
+        "phoneNumber": profile.phone_number,
         "stats": {
-            "knowledge_count": knowledge_count,
-            "comment_count": comment_count
+            "knowledgeCount": knowledge_count,
+            "commentCount": comment_count
         },
-        "recent_activity": {
+        "recentActivity": {
             "knowledge": [
                 {
                     "id": k.id,
                     "title": k.title,
-                    "created_at": k.created_at
+                    "createdAt": k.created_at.strftime("%Y年%m月%d日")
                 } for k in recent_knowledge
             ],
             "comments": [
                 {
                     "id": c.id,
                     "content": c.content,
-                    "knowledge_id": c.knowledge_id,
-                    "created_at": c.created_at
+                    "knowledgeId": c.knowledge_id,
+                    "createdAt": c.created_at.strftime("%Y年%m月%d日")
                 } for c in recent_comments
             ]
         }
@@ -103,7 +146,7 @@ async def update_profile(
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered"
+                detail="このユーザー名は既に使用されています"
             )
         current_user.username = profile_data.username
     
@@ -122,8 +165,8 @@ async def update_profile(
     if profile_data.bio is not None:
         profile.bio = profile_data.bio
     
-    if profile_data.phone_number is not None:
-        profile.phone_number = profile_data.phone_number
+    if profile_data.phoneNumber is not None:
+        profile.phone_number = profile_data.phoneNumber
     
     current_user.updated_at = datetime.utcnow()
     db.commit()
@@ -132,14 +175,14 @@ async def update_profile(
     
     return {
         "id": current_user.id,
-        "username": current_user.username,
+        "name": current_user.username,
         "email": current_user.email,
         "department": current_user.department,
-        "avatar_url": current_user.avatar_url,
-        "experience_points": current_user.experience_points,
+        "hasAvatar": current_user.avatar_data is not None,
+        "experiencePoints": current_user.experience_points,
         "level": current_user.level,
         "bio": profile.bio,
-        "phone_number": profile.phone_number
+        "phoneNumber": profile.phone_number
     }
 
 @router.post("/me/avatar")

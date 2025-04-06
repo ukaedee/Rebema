@@ -3,6 +3,9 @@
 # デバッグモードを有効化
 set -x
 
+# タイムアウト設定（秒）
+DB_CHECK_TIMEOUT=30
+
 # エラーハンドリング関数
 handle_error() {
     echo "Error occurred in script at line: ${1}"
@@ -22,7 +25,13 @@ run_with_output() {
 }
 
 echo "=== Environment Information ==="
-env | sort
+echo "Checking database environment variables..."
+echo "MYSQL_HOST: ${MYSQL_HOST:-not set}"
+echo "MYSQL_PORT: ${MYSQL_PORT:-not set}"
+echo "MYSQL_DB: ${MYSQL_DB:-not set}"
+echo "MYSQL_USER: ${MYSQL_USER:-not set}"
+echo "MYSQL_SSL_MODE: ${MYSQL_SSL_MODE:-not set}"
+echo "DATABASE_URL is ${DATABASE_URL:+set}${DATABASE_URL:-not set}"
 
 echo "=== Current Directory ==="
 pwd
@@ -84,6 +93,7 @@ run_with_output ls -la
 
 echo "=== Installing Requirements ==="
 if [ -f "requirements.txt" ]; then
+    echo "Installing Python packages..."
     run_with_output pip3 install -r requirements.txt
 fi
 
@@ -108,17 +118,28 @@ run_with_output python3 -c "from routers import knowledge; print('Knowledge rout
 run_with_output python3 -c "from routers import ranking; print('Ranking router can be imported')"
 
 echo "=== Testing Database Connection ==="
-echo "Running database connection test..."
-run_with_output python3 -c "
+echo "Running database connection test with timeout ${DB_CHECK_TIMEOUT}s..."
+
+# タイムアウト付きでデータベース接続チェックを実行
+timeout ${DB_CHECK_TIMEOUT} python3 -c "
 from utils.db_check import check_database_connection
 import sys
+print('データベース接続チェックを開始します...')
 if not check_database_connection():
     print('データベース接続テストに失敗しました')
     sys.exit(1)
 print('データベース接続テストが成功しました')
-"
+" || {
+    echo "Warning: Database check timed out after ${DB_CHECK_TIMEOUT}s, but continuing startup..."
+}
 
 echo "=== Starting Application ==="
+echo "Starting Gunicorn with the following configuration:"
+echo "- Workers: 4"
+echo "- Worker Class: uvicorn.workers.UvicornWorker"
+echo "- Timeout: 120s"
+echo "- Port: $PORT"
+
 exec gunicorn main:app \
     --bind=0.0.0.0:$PORT \
     --workers=4 \
@@ -126,10 +147,9 @@ exec gunicorn main:app \
     --timeout=120 \
     --access-logfile=- \
     --error-logfile=- \
-    --log-level=debug \
+    --log-level=info \
     --chdir "$APP_DIR" \
     --capture-output \
-    --enable-stdio-inheritance \
-    --preload
+    --enable-stdio-inheritance
 
 STARTUP_COMMAND=bash rebema-backend/startup.sh
