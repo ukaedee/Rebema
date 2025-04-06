@@ -107,8 +107,16 @@ run_with_output python3 -c "from routers import auth; print('Auth router can be 
 run_with_output python3 -c "from routers import knowledge; print('Knowledge router can be imported')"
 run_with_output python3 -c "from routers import ranking; print('Ranking router can be imported')"
 
-echo "Testing database connection..."
-run_with_output python3 -c "from models.database import engine; print('Database engine can be imported')"
+echo "=== Testing Database Connection ==="
+echo "Running database connection test..."
+run_with_output python3 -c "
+from utils.db_check import check_database_connection
+import sys
+if not check_database_connection():
+    print('データベース接続テストに失敗しました')
+    sys.exit(1)
+print('データベース接続テストが成功しました')
+"
 
 echo "=== Starting Application ==="
 exec gunicorn main:app \
