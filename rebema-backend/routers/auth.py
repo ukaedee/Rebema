@@ -1,6 +1,5 @@
 from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
@@ -19,86 +18,9 @@ from core.security import (
 
 router = APIRouter()
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    username: str
-    department: Optional[str] = None
-
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    username: str
-    level: int
-    points: int
-    current_xp: int
-    department: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-class UserProfile(BaseModel):
-    username: Optional[str] = None
-    department: Optional[str] = None
-    password: Optional[str] = None
-
 class LoginRequest(BaseModel):
     email: str
     password: str
-
-@router.post("/register")
-async def register(
-    user_data: UserCreate,
-    db: Session = Depends(get_db)
-):
-    # メールアドレスの重複チェック
-    if db.query(User).filter(User.email == user_data.email).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="このメールアドレスは既に登録されています"
-        )
-    
-    # ユーザー名の重複チェック
-    if db.query(User).filter(User.username == user_data.username).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="このユーザー名は既に使用されています"
-        )
-    
-    try:
-        # 新規ユーザー作成
-        hashed_password = get_password_hash(user_data.password)
-        user = User(
-            email=user_data.email,
-            password_hash=hashed_password,
-            username=user_data.username,
-            department=user_data.department,
-            level=1,
-            points=0,
-            current_xp=0,
-            experience_points=0,
-            is_first_login=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-        return {
-            "message": "ユーザーが正常に作成されました",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "name": user.username,
-                "department": user.department,
-                "level": user.level
-            }
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"ユーザー作成中にエラーが発生しました: {str(e)}"
-        )
 
 @router.post("/login")
 async def login(
@@ -123,46 +45,6 @@ async def login(
     return {
         "accessToken": access_token,
         "tokenType": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.username,
-            "department": user.department,
-            "level": user.level,
-            "hasAvatar": user.avatar_data is not None,
-            "avatarContentType": user.avatar_content_type
-        }
-    }
-
-@router.post("/token")
-async def login_with_form(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    """
-    非推奨: このエンドポイントは後方互換性のために維持されています。
-    新しいアプリケーションでは /auth/login エンドポイントを使用してください。
-    """
-    # メールアドレスまたはユーザー名でユーザーを検索
-    user = db.query(User).filter(
-        (User.email == form_data.username) | (User.username == form_data.username)
-    ).first()
-    
-    if not user or not verify_password(form_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="メールアドレスまたはパスワードが正しくありません",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
         "user": {
             "id": user.id,
             "email": user.email,
@@ -200,29 +82,31 @@ async def read_users_me(
     
     return {
         "id": current_user.id,
-        "username": current_user.username,
+        "email": current_user.email,
+        "name": current_user.username,
         "department": current_user.department,
-        "avatar_url": current_user.avatar_url,
-        "experience_points": current_user.experience_points,
         "level": current_user.level,
+        "hasAvatar": current_user.avatar_data is not None,
+        "avatarContentType": current_user.avatar_content_type,
+        "experiencePoints": current_user.experience_points,
         "stats": {
-            "knowledge_count": knowledge_count,
-            "comment_count": comment_count
+            "knowledgeCount": knowledge_count,
+            "commentCount": comment_count
         },
-        "recent_activity": {
+        "recentActivity": {
             "knowledge": [
                 {
                     "id": k.id,
                     "title": k.title,
-                    "created_at": k.created_at
+                    "createdAt": k.created_at
                 } for k in recent_knowledge
             ],
             "comments": [
                 {
                     "id": c.id,
                     "content": c.content,
-                    "knowledge_id": c.knowledge_id,
-                    "created_at": c.created_at
+                    "knowledgeId": c.knowledge_id,
+                    "createdAt": c.created_at
                 } for c in recent_comments
             ]
         }
@@ -243,7 +127,7 @@ async def update_profile(
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered"
+                detail="このユーザー名は既に使用されています"
             )
         current_user.username = profile.username
     
@@ -251,7 +135,7 @@ async def update_profile(
         current_user.department = profile.department
     
     if profile.password is not None:
-        current_user.hashed_password = get_password_hash(profile.password)
+        current_user.password_hash = get_password_hash(profile.password)
     
     current_user.updated_at = datetime.utcnow()
     db.commit()
@@ -259,10 +143,11 @@ async def update_profile(
     
     return {
         "id": current_user.id,
-        "username": current_user.username,
+        "name": current_user.username,
         "department": current_user.department,
-        "avatar_url": current_user.avatar_url,
-        "experience_points": current_user.experience_points,
+        "hasAvatar": current_user.avatar_data is not None,
+        "avatarContentType": current_user.avatar_content_type,
+        "experiencePoints": current_user.experience_points,
         "level": current_user.level
     }
 
