@@ -28,8 +28,12 @@ jobs:
           mkdir -p deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
           rsync -av --exclude='venv' ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/ deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/
           
+          # startup.shをWebAppのルートディレクトリにコピー
+          cp deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh deploy_package/
+          
           # startup.shの実行権限を設定
           chmod +x deploy_package/${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/startup.sh
+          chmod +x deploy_package/startup.sh
           
           # パッケージの作成
           cd deploy_package
