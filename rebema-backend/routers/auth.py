@@ -119,7 +119,8 @@ async def login(
             "name": user.username,
             "department": user.department,
             "level": user.level,
-            "avatarUrl": user.avatar_url
+            "hasAvatar": user.avatar_data is not None,
+            "avatarContentType": user.avatar_content_type
         }
     }
 

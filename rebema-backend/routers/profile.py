@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
 import os
-from azure.storage.blob import BlobServiceClient, ContentSettings
 from sqlalchemy.sql import func
 
 from models.database import get_db
@@ -15,14 +14,6 @@ from models.comment import Comment
 from core.security import get_current_user, get_password_hash
 
 router = APIRouter(prefix="/profile", tags=["profile"])
-
-# Azure Blob Storage設定
-AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "user-avatars")
-
-# Blob Service Clientの初期化
-blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-container_client = blob_service_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
 
 class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
@@ -165,25 +156,19 @@ async def update_avatar(
         )
     
     try:
-        # Azure Blob Storageにアップロード
-        blob_name = f"avatars/{current_user.id}/{file.filename}"
-        blob_client = container_client.get_blob_client(blob_name)
-        
+        # ファイルの内容を読み込む
         file_content = await file.read()
-        blob_client.upload_blob(
-            file_content,
-            content_settings=ContentSettings(content_type=file.content_type),
-            overwrite=True
-        )
         
-        # ユーザーのavatar_urlを更新
-        current_user.avatar_url = blob_client.url
+        # ユーザーのアバター情報を更新
+        current_user.avatar_data = file_content
+        current_user.avatar_content_type = file.content_type
         current_user.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(current_user)
         
         return {
-            "avatar_url": current_user.avatar_url
+            "message": "Avatar updated successfully",
+            "contentType": current_user.avatar_content_type
         }
         
     except Exception as e:
@@ -191,6 +176,22 @@ async def update_avatar(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+@router.get("/me/avatar")
+async def get_avatar(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user.avatar_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Avatar not found"
+        )
+    
+    return Response(
+        content=current_user.avatar_data,
+        media_type=current_user.avatar_content_type
+    )
 
 @router.get("/mypage")
 async def get_mypage(

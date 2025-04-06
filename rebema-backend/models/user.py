@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, LargeBinary
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -15,7 +15,8 @@ class User(Base):
     current_xp = Column(Integer, default=0)
     is_first_login = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    avatar_url = Column(String(255), nullable=True)
+    avatar_data = Column(LargeBinary, nullable=True)
+    avatar_content_type = Column(String(50), nullable=True)  # 画像のMIMEタイプを保存
     department = Column(String(100), nullable=True)
 
     # リレーションシップ
