@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
+from azure.storage.blob import BlobServiceClient, ContentSettings
+import os
 
 from models.database import get_db
 from models.user import User
@@ -18,9 +20,20 @@ from core.security import (
 
 router = APIRouter()
 
+# Azure Blob Storage設定
+connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+container_client = blob_service_client.get_container_client(container_name)
+
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+class UserProfile(BaseModel):
+    username: Optional[str] = None
+    department: Optional[str] = None
+    password: Optional[str] = None
 
 @router.post("/login")
 async def login(
