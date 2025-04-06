@@ -53,6 +53,10 @@ class UserProfile(BaseModel):
     department: Optional[str] = None
     password: Optional[str] = None
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/register")
 async def register(
     user_data: UserCreate,
@@ -86,20 +90,18 @@ async def register(
     
     return {"message": "User created successfully"}
 
-@router.post("/token")
+@router.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    # メールアドレスまたはユーザー名でユーザーを検索
-    user = db.query(User).filter(
-        (User.email == form_data.username) | (User.username == form_data.username)
-    ).first()
+    # メールアドレスでユーザーを検索
+    user = db.query(User).filter(User.email == login_data.email).first()
     
-    if not user or not verify_password(form_data.password, user.password_hash):
+    if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username/email or password",
+            detail="メールアドレスまたはパスワードが正しくありません",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -109,8 +111,16 @@ async def login(
     )
     
     return {
-        "access_token": access_token,
-        "token_type": "bearer"
+        "accessToken": access_token,
+        "tokenType": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.username,
+            "department": user.department,
+            "level": user.level,
+            "avatarUrl": user.avatar_url
+        }
     }
 
 @router.get("/me")

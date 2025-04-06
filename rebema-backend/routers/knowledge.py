@@ -244,21 +244,21 @@ async def list_knowledge(
             "target": knowledge.target,
             "category": knowledge.category,
             "views": knowledge.views,
-            "created_at": knowledge.created_at,
-            "updated_at": knowledge.updated_at,
-            "comment_count": comment_count,
-            "file_count": file_count,
+            "createdAt": knowledge.created_at.strftime("%Y年%m月%d日"),
+            "updatedAt": knowledge.updated_at.strftime("%Y年%m月%d日"),
+            "commentCount": comment_count,
+            "fileCount": file_count,
             "author": {
                 "id": author.id,
-                "username": author.username,
-                "avatar_url": author.avatar_url,
+                "name": author.username,
+                "avatarUrl": author.avatar_url,
                 "department": author.department
             },
             "collaborators": [
                 {
                     "id": user.id,
-                    "username": user.username,
-                    "avatar_url": user.avatar_url,
+                    "name": user.username,
+                    "avatarUrl": user.avatar_url,
                     "department": user.department
                 }
                 for user in collaborator_users
@@ -273,8 +273,8 @@ async def list_knowledge(
         "limit": limit,
         "search": search,
         "categories": categories,
-        "sort_by": sort_by,
-        "sort_order": sort_order
+        "sortBy": sort_by,
+        "sortOrder": sort_order
     }
 
 @router.put("/{knowledge_id}")
@@ -375,17 +375,17 @@ async def get_knowledge(
         "target": knowledge.target,
         "category": knowledge.category,
         "views": knowledge.views,
-        "created_at": knowledge.created_at,
-        "updated_at": knowledge.updated_at,
+        "createdAt": knowledge.created_at.strftime("%Y年%m月%d日"),
+        "updatedAt": knowledge.updated_at.strftime("%Y年%m月%d日"),
         "author": {
             "id": knowledge.author.id,
-            "username": knowledge.author.username,
-            "avatar_url": knowledge.author.avatar_url,
+            "name": knowledge.author.username,
+            "avatarUrl": knowledge.author.avatar_url,
             "department": knowledge.author.department
         },
         "stats": {
-            "comment_count": comment_count,
-            "file_count": file_count
+            "commentCount": comment_count,
+            "fileCount": file_count
         }
     }
 
@@ -446,9 +446,23 @@ async def list_comments(
         .filter(Comment.knowledge_id == knowledge_id)\
         .count()
     
+    comment_list = []
+    for comment in comments:
+        comment_list.append({
+            "id": comment.id,
+            "content": comment.content,
+            "createdAt": comment.created_at.strftime("%Y年%m月%d日"),
+            "author": {
+                "id": comment.author.id,
+                "name": comment.author.username,
+                "avatarUrl": comment.author.avatar_url,
+                "department": comment.author.department
+            }
+        })
+    
     return {
         "total": total,
-        "items": comments
+        "items": comment_list
     }
 
 @router.delete("/comments/{comment_id}")
