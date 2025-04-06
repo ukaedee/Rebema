@@ -74,9 +74,9 @@ run_with_output python3 --version
 run_with_output python3 -c "import sys; print(f'Python {sys.version}')"
 run_with_output python3 -c "import platform; print(f'Platform Python version: {platform.python_version()}')"
 echo "Pip information:"
-run_with_output which pip3
-run_with_output pip3 --version
-run_with_output pip3 list
+run_with_output which python3
+run_with_output python3 -m pip --version
+run_with_output python3 -m pip list
 
 echo "=== Directory Structure ==="
 echo "Contents of current directory:"
@@ -94,11 +94,11 @@ run_with_output ls -la
 echo "=== Installing Requirements ==="
 if [ -f "requirements.txt" ]; then
     echo "Installing Python packages..."
-    run_with_output pip3 install -r requirements.txt
+    run_with_output python3 -m pip install -r requirements.txt
 fi
 
 echo "=== Checking Required Packages ==="
-run_with_output pip3 list | grep -E "fastapi|uvicorn|gunicorn"
+run_with_output python3 -m pip list | grep -E "fastapi|uvicorn|gunicorn"
 
 # 環境変数が設定されていない場合は8000を使用
 PORT=${WEBSITES_PORT:-8000}
