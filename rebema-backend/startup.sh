@@ -93,7 +93,7 @@ run_with_output ls -la
 echo "=== Installing Requirements ==="
 if [ -f "requirements.txt" ]; then
     echo "Installing Python packages..."
-    run_with_output python3 -m pip install -r requirements.txt
+    run_with_output python3 -m pip install --user -r requirements.txt
 fi
 
 echo "=== Checking Required Packages ==="
