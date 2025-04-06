@@ -13,8 +13,10 @@ class User(Base):
     level = Column(Integer, default=1)
     points = Column(Integer, default=0)
     current_xp = Column(Integer, default=0)
+    experience_points = Column(Integer, default=0)
     is_first_login = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String(50), nullable=True)  # 画像のMIMEタイプを保存
     department = Column(String(100), nullable=True)
@@ -23,4 +25,5 @@ class User(Base):
     knowledges = relationship("Knowledge", back_populates="author")
     comments = relationship("Comment", back_populates="author")
     activities = relationship("UserActivity", back_populates="user")
-    collaborations = relationship("KnowledgeCollaborator", back_populates="user") 
+    collaborations = relationship("KnowledgeCollaborator", back_populates="user")
+    profile = relationship("Profile", back_populates="user", uselist=False) 

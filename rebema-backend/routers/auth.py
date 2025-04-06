@@ -1,11 +1,9 @@
 from datetime import timedelta, datetime
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
-import os
-from azure.storage.blob import BlobServiceClient, ContentSettings
 
 from models.database import get_db
 from models.user import User
@@ -21,14 +19,6 @@ from core.security import (
 
 router = APIRouter()
 
-# Azure Blob Storage設定
-AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "user-avatars")
-
-# Blob Service Clientの初期化
-blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-container_client = blob_service_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
-
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -42,7 +32,6 @@ class UserResponse(BaseModel):
     level: int
     points: int
     current_xp: int
-    avatar_url: Optional[str]
     department: Optional[str]
 
     class Config:
@@ -66,29 +55,50 @@ async def register(
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="このメールアドレスは既に登録されています"
         )
     
     # ユーザー名の重複チェック
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
+            detail="このユーザー名は既に使用されています"
         )
     
-    # 新規ユーザー作成
-    hashed_password = get_password_hash(user_data.password)
-    user = User(
-        email=user_data.email,
-        password_hash=hashed_password,
-        username=user_data.username,
-        department=user_data.department
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    return {"message": "User created successfully"}
+    try:
+        # 新規ユーザー作成
+        hashed_password = get_password_hash(user_data.password)
+        user = User(
+            email=user_data.email,
+            password_hash=hashed_password,
+            username=user_data.username,
+            department=user_data.department,
+            level=1,
+            points=0,
+            current_xp=0,
+            experience_points=0,
+            is_first_login=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        return {
+            "message": "ユーザーが正常に作成されました",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.username,
+                "department": user.department,
+                "level": user.level
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"ユーザー作成中にエラーが発生しました: {str(e)}"
+        )
 
 @router.post("/login")
 async def login(
@@ -113,6 +123,46 @@ async def login(
     return {
         "accessToken": access_token,
         "tokenType": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.username,
+            "department": user.department,
+            "level": user.level,
+            "hasAvatar": user.avatar_data is not None,
+            "avatarContentType": user.avatar_content_type
+        }
+    }
+
+@router.post("/token")
+async def login_with_form(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """
+    非推奨: このエンドポイントは後方互換性のために維持されています。
+    新しいアプリケーションでは /auth/login エンドポイントを使用してください。
+    """
+    # メールアドレスまたはユーザー名でユーザーを検索
+    user = db.query(User).filter(
+        (User.email == form_data.username) | (User.username == form_data.username)
+    ).first()
+    
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="メールアドレスまたはパスワードが正しくありません",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
         "user": {
             "id": user.id,
             "email": user.email,
