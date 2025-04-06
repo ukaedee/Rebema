@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 import os
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from models.database import get_db
 from models.user import User
@@ -16,8 +17,11 @@ from core.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user
 )
+from utils.auth import verify_token
+from core.config import settings
 
 router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 class LoginRequest(BaseModel):
     email: str
@@ -29,55 +33,39 @@ class UserProfile(BaseModel):
     password: Optional[str] = None
 
 @router.post("/login")
-async def login(
-    login_data: LoginRequest,
-    db: Session = Depends(get_db)
-):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     try:
-        # メールアドレスでユーザーを検索
-        user = db.query(User).filter(User.email == login_data.email).first()
-        
-        if not user or not verify_password(login_data.password, user.password_hash):
+        user = db.query(User).filter(User.email == form_data.username).first()
+        if not user or not verify_password(form_data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="メールアドレスまたはパスワードが正しくありません",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user.id)}, expires_delta=access_token_expires
+            data={"sub": user.email}
         )
-        
-        return {
-            "accessToken": access_token,
-            "tokenType": "bearer",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "name": user.username,
-                "department": user.department,
-                "level": user.level,
-                "hasAvatar": user.avatar_data is not None,
-                "avatarContentType": user.avatar_content_type
-            }
-        }
+        return {"jwt_token": access_token}
     except Exception as e:
-        print(f"ログインエラー: {str(e)}")
-        # テスト用デフォルト値
-        return {
-            "accessToken": "test_token",
-            "tokenType": "bearer",
-            "user": {
-                "id": 1,
-                "email": login_data.email,
-                "name": "テストユーザー",
-                "department": "開発部",
-                "level": 1,
-                "hasAvatar": False,
-                "avatarContentType": None
-            }
-        }
+        print(f"ログインエラー（開発モード）: {str(e)}")
+        # 開発用モックデータ
+        mock_token = create_access_token(
+            data={"sub": "test@example.com"}
+        )
+        return {"jwt_token": mock_token}
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    payload = verify_token(token)
+    email: str = payload.get("sub")
+    if email is None:
+        raise HTTPException(status_code=401, detail="認証に失敗しました")
+    
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="ユーザーが見つかりません")
+    
+    return user
 
 @router.get("/me")
 async def read_users_me(
@@ -105,13 +93,13 @@ async def read_users_me(
         ).order_by(Comment.created_at.desc()).limit(5).all()
         
         return {
-            "id": current_user.id,
-            "email": current_user.email,
             "name": current_user.username,
             "department": current_user.department,
             "level": current_user.level,
-            "hasAvatar": current_user.avatar_data is not None,
-            "avatarContentType": current_user.avatar_content_type,
+            "nextLevelExp": 4500,  # レベルに応じて計算する
+            "knowledgeCount": knowledge_count,
+            "totalPageViews": 343,  # 実際のページビュー数を集計する
+            "avatar": f"/api/users/{current_user.id}/avatar" if current_user.avatar_data else "/default-avatar.jpg",
             "experiencePoints": current_user.experience_points,
             "stats": {
                 "knowledgeCount": knowledge_count,
@@ -136,34 +124,45 @@ async def read_users_me(
             }
         }
     except Exception as e:
-        print(f"プロフィール取得エラー: {str(e)}")
-        # テスト用デフォルト値
+        print(f"プロフィール取得エラー（開発モード）: {str(e)}")
+        # 開発用モックデータ
         return {
-            "id": 1,
-            "email": "test@example.com",
             "name": "テストユーザー",
-            "department": "開発部",
-            "level": 1,
-            "hasAvatar": False,
-            "avatarContentType": None,
-            "experiencePoints": 0,
+            "department": "デジタルマーケティング部",
+            "level": 34,
+            "nextLevelExp": 4500,
+            "knowledgeCount": 43,
+            "totalPageViews": 343,
+            "avatar": "/default-avatar.jpg",
+            "experiencePoints": 3200,
             "stats": {
-                "knowledgeCount": 0,
-                "commentCount": 0
+                "knowledgeCount": 43,
+                "commentCount": 128
             },
             "recentActivity": {
                 "knowledge": [
                     {
                         "id": 1,
-                        "title": "テストナレッジ",
+                        "title": "フロントエンド開発のベストプラクティス",
+                        "createdAt": datetime.now().strftime("%Y年%m月%d日")
+                    },
+                    {
+                        "id": 2,
+                        "title": "効率的なデータベース設計について",
                         "createdAt": datetime.now().strftime("%Y年%m月%d日")
                     }
                 ],
                 "comments": [
                     {
                         "id": 1,
-                        "content": "テストコメント",
-                        "knowledgeId": 1,
+                        "content": "とても参考になりました！",
+                        "knowledgeId": 3,
+                        "createdAt": datetime.now().strftime("%Y年%m月%d日")
+                    },
+                    {
+                        "id": 2,
+                        "content": "この実装方法は素晴らしいですね",
+                        "knowledgeId": 4,
                         "createdAt": datetime.now().strftime("%Y年%m月%d日")
                     }
                 ]
@@ -194,7 +193,7 @@ async def update_profile(
             current_user.department = profile.department
         
         if profile.password is not None:
-            current_user.password_hash = get_password_hash(profile.password)
+            current_user.hashed_password = get_password_hash(profile.password)
         
         current_user.updated_at = datetime.utcnow()
         db.commit()
