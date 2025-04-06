@@ -15,6 +15,8 @@ class User(Base):
     current_xp = Column(Integer, default=0)
     is_first_login = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    avatar_url = Column(String(255), nullable=True)
+    department = Column(String(100), nullable=True)
 
     # リレーションシップ
     knowledges = relationship("Knowledge", back_populates="author")

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
 import os
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
@@ -25,22 +26,34 @@ AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "knowle
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 container_client = blob_service_client.get_container_client(AZURE_STORAGE_CONTAINER_NAME)
 
+class KnowledgeCreate(BaseModel):
+    title: str
+    method: str
+    target: str
+    description: str
+    category: Optional[str] = None
+
+class KnowledgeUpdate(BaseModel):
+    title: Optional[str] = None
+    method: Optional[str] = None
+    target: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+
 @router.post("/")
 async def create_knowledge(
-    title: str,
-    method: str,
-    target: str,
-    description: str,
+    knowledge_data: KnowledgeCreate,
     files: Optional[List[UploadFile]] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     # ナレッジの作成
     knowledge = Knowledge(
-        title=title,
-        method=method,
-        target=target,
-        description=description,
+        title=knowledge_data.title,
+        method=knowledge_data.method,
+        target=knowledge_data.target,
+        description=knowledge_data.description,
+        category=knowledge_data.category,
         author_id=current_user.id
     )
     db.add(knowledge)
@@ -154,40 +167,120 @@ async def list_knowledge(
     skip: int = 0,
     limit: int = 10,
     search: Optional[str] = None,
-    sort_by: Optional[str] = Query(None, enum=["created_at", "views", "title"]),
-    sort_order: Optional[str] = Query("desc", enum=["asc", "desc"]),
-    db: Session = Depends(get_db)
+    categories: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
 ):
+    # 基本クエリの作成
     query = db.query(Knowledge)
-    
+
+    # 検索フィルターの適用
     if search:
-        query = query.filter(
-            (Knowledge.title.ilike(f"%{search}%")) |
-            (Knowledge.description.ilike(f"%{search}%"))
+        search_filter = (
+            Knowledge.title.ilike(f"%{search}%") |
+            Knowledge.description.ilike(f"%{search}%") |
+            Knowledge.method.ilike(f"%{search}%") |
+            Knowledge.target.ilike(f"%{search}%")
         )
-    
-    if sort_by:
-        sort_column = getattr(Knowledge, sort_by)
-        if sort_order == "desc":
-            query = query.order_by(sort_column.desc())
-        else:
-            query = query.order_by(sort_column.asc())
-    
+        query = query.filter(search_filter)
+
+    # カテゴリーフィルターの適用
+    if categories:
+        category_list = [cat.strip() for cat in categories.split(",")]
+        query = query.filter(Knowledge.category.in_(category_list))
+
+    # 総件数の取得
     total = query.count()
-    knowledges = query.offset(skip).limit(limit).all()
+
+    # ソート順の適用
+    if sort_by == "title":
+        order_column = Knowledge.title
+    elif sort_by == "views":
+        order_column = Knowledge.views
+    else:  # デフォルトは created_at
+        order_column = Knowledge.created_at
+
+    if sort_order == "asc":
+        query = query.order_by(order_column.asc())
+    else:
+        query = query.order_by(order_column.desc())
+
+    # ページネーションの適用
+    query = query.offset(skip).limit(limit)
     
+    # 結果の取得
+    knowledge_list = query.all()
+    
+    # レスポンスの作成
+    results = []
+    for knowledge in knowledge_list:
+        # コメント数の取得
+        comment_count = db.query(Comment).filter(
+            Comment.knowledge_id == knowledge.id
+        ).count()
+        
+        # ファイル数の取得
+        file_count = db.query(FileModel).filter(
+            FileModel.knowledge_id == knowledge.id
+        ).count()
+        
+        # 著者情報の取得
+        author = db.query(User).filter(User.id == knowledge.author_id).first()
+        
+        # コラボレーター情報の取得
+        collaborators = db.query(KnowledgeCollaborator).filter(
+            KnowledgeCollaborator.knowledge_id == knowledge.id
+        ).all()
+        collaborator_ids = [c.user_id for c in collaborators]
+        collaborator_users = db.query(User).filter(User.id.in_(collaborator_ids)).all()
+        
+        knowledge_dict = {
+            "id": knowledge.id,
+            "title": knowledge.title,
+            "description": knowledge.description,
+            "method": knowledge.method,
+            "target": knowledge.target,
+            "category": knowledge.category,
+            "views": knowledge.views,
+            "created_at": knowledge.created_at,
+            "updated_at": knowledge.updated_at,
+            "comment_count": comment_count,
+            "file_count": file_count,
+            "author": {
+                "id": author.id,
+                "username": author.username,
+                "avatar_url": author.avatar_url,
+                "department": author.department
+            },
+            "collaborators": [
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "avatar_url": user.avatar_url,
+                    "department": user.department
+                }
+                for user in collaborator_users
+            ]
+        }
+        results.append(knowledge_dict)
+
     return {
         "total": total,
-        "items": knowledges
+        "items": results,
+        "skip": skip,
+        "limit": limit,
+        "search": search,
+        "categories": categories,
+        "sort_by": sort_by,
+        "sort_order": sort_order
     }
 
 @router.put("/{knowledge_id}")
 async def update_knowledge(
     knowledge_id: int,
-    title: Optional[str] = None,
-    method: Optional[str] = None,
-    target: Optional[str] = None,
-    description: Optional[str] = None,
+    knowledge_data: KnowledgeUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -204,17 +297,22 @@ async def update_knowledge(
             detail="Not authorized to update this knowledge"
         )
     
-    if title:
-        knowledge.title = title
-    if method:
-        knowledge.method = method
-    if target:
-        knowledge.target = target
-    if description:
-        knowledge.description = description
+    # 更新対象のフィールドを設定
+    if knowledge_data.title is not None:
+        knowledge.title = knowledge_data.title
+    if knowledge_data.method is not None:
+        knowledge.method = knowledge_data.method
+    if knowledge_data.target is not None:
+        knowledge.target = knowledge_data.target
+    if knowledge_data.description is not None:
+        knowledge.description = knowledge_data.description
+    if knowledge_data.category is not None:
+        knowledge.category = knowledge_data.category
     
+    knowledge.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(knowledge)
+    
     return knowledge
 
 @router.delete("/{knowledge_id}")
@@ -261,11 +359,35 @@ async def get_knowledge(
             detail="Knowledge not found"
         )
     
-    # 閲覧数のインクリメント
+    # 閲覧数をインクリメント
     knowledge.views += 1
     db.commit()
     
-    return knowledge
+    # 関連データのカウント
+    comment_count = db.query(Comment).filter(Comment.knowledge_id == knowledge_id).count()
+    file_count = db.query(FileModel).filter(FileModel.knowledge_id == knowledge_id).count()
+    
+    return {
+        "id": knowledge.id,
+        "title": knowledge.title,
+        "description": knowledge.description,
+        "method": knowledge.method,
+        "target": knowledge.target,
+        "category": knowledge.category,
+        "views": knowledge.views,
+        "created_at": knowledge.created_at,
+        "updated_at": knowledge.updated_at,
+        "author": {
+            "id": knowledge.author.id,
+            "username": knowledge.author.username,
+            "avatar_url": knowledge.author.avatar_url,
+            "department": knowledge.author.department
+        },
+        "stats": {
+            "comment_count": comment_count,
+            "file_count": file_count
+        }
+    }
 
 @router.post("/{knowledge_id}/comments")
 async def create_comment(
